@@ -106,8 +106,38 @@ async function processNote(
 
   const notebooks = note.notebooks?.slice() || [];
   note.notebooks = [];
+
+  const coerceDate = (d: unknown): number | undefined => {
+    if (d == null) return undefined;
+    if (typeof d === "number") return d;
+    if (d instanceof Date) return d.getTime();
+    if (typeof d === "string") {
+      const ms = Date.parse(d);
+      return Number.isFinite(ms) ? ms : undefined;
+    }
+    return undefined;
+  };
+  const metadata = note as Record<string, unknown>;
+  const dateCreated = coerceDate(
+    metadata["dateCreated"] ??
+      metadata["createdAt"] ??
+      metadata["created"] ??
+      metadata["ctime"]
+  );
+  const dateEdited = coerceDate(
+    metadata["dateEdited"] ??
+      metadata["updatedAt"] ??
+      metadata["updated"] ??
+      metadata["mtime"]
+  );
   const noteId = await db.notes.add({
     ...note,
+    ...(dateCreated
+      ? { dateCreated }
+      : dateEdited
+      ? { dateCreated: dateEdited }
+      : {}),
+    ...(dateEdited ? { dateEdited } : {}),
     content: { type: "tiptap", data: note.content?.data },
     notebooks: []
   });
